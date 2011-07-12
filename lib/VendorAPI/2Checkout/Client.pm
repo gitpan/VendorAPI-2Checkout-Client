@@ -10,17 +10,19 @@ use Carp qw(confess);
 use URI;
 use URI::QueryParam;
 
+use Data::Dumper;
+
 =head1 NAME
 
 VendorAPI::2Checkout::Client - an OO interface to the 2Checkout.com Vendor API
 
 =head1 VERSION
 
-Version 0.07
+Version 0.08
 
 =cut
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use constant {
      VAPI_BASE_URI => 'https://www.2checkout.com/api/sales',
@@ -50,7 +52,7 @@ Presently only implements list_sales (no params), and detail_sale( sale_id => $s
 
 Return data is in XML. Requesting JSON not implemented yet.
 
-Please refer to L<2Checkout's Back Office Admin API Documentation|http://www.2checkout.com/documentation/api> 
+Please refer to L<2Checkout's Back Office Admin API Documentation|http://www.2checkout.com/documentation/api>
 for input parameters and expexted return values.
 
 =head1 CONSTRUCTORS AND METHODS
@@ -64,18 +66,26 @@ You must pass your Vendor API username and password or the constructor will retu
 
 =cut
 
+my %accept_mime_types = ( XML => 'application/xml', JSON => 'application/json' );
+
 sub new {
    my $class = shift;
    my $username = shift;
    my $password = shift;
-   
+   my $accept   = shift;
+
    unless ( $username && $password) {
       return undef;
    }
 
+   unless ( defined $accept && $accept =~ qr/^(?:XML|JSON)$/) {
+      $accept = 'XML';
+   }
+
+
    my $ua = LWP::UserAgent->new( agent => "VendorAPI::2Checkout::Client/${VERSION} " );
    $ua->credentials(VAPI_NETLOC, VAPI_REALM, $username, $password);
-   return bless { ua => $ua }, $class;
+   return bless { ua => $ua, accept => $accept_mime_types{$accept}  }, $class;
 }
 
 
@@ -88,7 +98,7 @@ Retrieves the list of sales for the vendor
 my $sort_col_re = qr/^(sale_id|date_placed|customer_name|recurring|recurring_declined|usd_total)$/;
 my $sort_dir_re = qr/^(ASC|DESC)$/;
 
-my %v = ( 
+my %v = (
              sale_id => { type => SCALAR, regex => qw/^\d+$/ , untaint => 1, optional => 1, },
              invoice_id => { type => SCALAR, regex => qw/^\d+$/ , untaint => 1, optional => 1, },
              pagesize => { type => SCALAR, regex => qw/^\d+$/ , untaint => 1, optional => 1, },
@@ -110,51 +120,59 @@ my %v = (
 
 my $_profile = { map { $_ => $v{$_} } keys %v };
 
+sub _accept_header();
+
 sub list_sales {
    my $self = shift;
    my $uri = URI->new(VAPI_BASE_URI . '/list_sales');
-   my %p = validate(@_, $_profile);
+   my %headers = ( Accept => $self->_accept() ); 
 
-   foreach my $k ( keys %p ) {
-      $uri->query_param($k => $p{$k});
+   my %input_params = validate(@_, $_profile);
+
+   foreach my $param_name ( keys %input_params ) {
+      $uri->query_param($param_name => $input_params{$param_name});
    }
-   $self->_ua->get($uri);
+
+   $self->_ua->get($uri, %headers);
 }
 
 =item  $sale = $c->detail_sale(sale_id => $sale_id);
 
-Retrieves the details for the named sale.  
+Retrieves the details for the named sale.
 
 =cut
-my $_detail_profile = {
-   sale_id       => $v{sale_id},
-   invoice_id    => $v{invoice_id},
-};
+
+my $_detail_profile = { map { $_ => $v{$_} } qw/sale_id invoice_id accept/ };
 
 sub detail_sale {
    my $self = shift;
-   
-   my %params = validate(@_, $_detail_profile);
 
-   unless ($params{sale_id} || $params{invoice_id}) {
+   my %p = validate(@_, $_detail_profile);
+
+   unless ($p{sale_id} || $p{invoice_id}) {
       confess("detail_sale requires sale_id or invoice_id and received neither");
-   } 
+   }
 
    my $uri = URI->new(VAPI_BASE_URI . '/detail_sale');
+   my %headers = ( Accept => $self->_accept() );
 
-   if ($params{invoice_id} ) {
-      $uri->query_param(invoice_id => $params{invoice_id});
+   if ($p{invoice_id} ) {
+      $uri->query_param(invoice_id => $p{invoice_id});
    }
-   else { 
-      $uri->query_param(sale_id => $params{sale_id});
+   else {
+      $uri->query_param(sale_id => $p{sale_id});
    }
 
-   $self->_ua->get($uri);
+   $self->_ua->get($uri, %headers);
 }
 
 
-sub _ua { 
-   $_[0]->{ua}; 
+sub _accept {
+   $_[0]->{accept};
+};
+
+sub _ua {
+   $_[0]->{ua};
 };
 
 
