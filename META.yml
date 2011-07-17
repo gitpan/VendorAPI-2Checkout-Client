@@ -25,4 +25,4 @@ requires:
   Params::Validate: 0
   URI: 0
   URI::QueryParam: 0
-version: 0.0802
+version: 0.0901
