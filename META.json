@@ -35,13 +35,18 @@
       },
       "runtime" : {
          "requires" : {
-            "LWP" : 0,
+            "LWP::UserAgent" : 0,
+            "Moose" : 0,
+            "Moose::Util::TypeConstraints" : 0,
+            "MooseX::NonMoose" : 0,
             "Params::Validate" : 0,
+            "UNIVERSAL::require" : 0,
             "URI" : 0,
-            "URI::QueryParam" : 0
+            "URI::QueryParam" : 0,
+            "namespace::autoclean" : 0
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.1500"
+   "version" : "0.1501"
 }
