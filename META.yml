@@ -30,4 +30,4 @@ requires:
   URI: 0
   URI::QueryParam: 0
   namespace::autoclean: 0
-version: 0.1501
+version: 0.1502
